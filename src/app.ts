@@ -1,39 +1,32 @@
-import { join } from 'node:path'
-import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
-import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
+import Fastify from 'fastify';
+import { authRoutes } from './routes/auth.route';
 
-export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {
+const app = Fastify({
+  logger: true,
+});
 
-}
-// Pass --options via CLI arguments in command to enable these options.
-const options: AppOptions = {
-}
+// Register routes
+app.register(authRoutes);
 
-const app: FastifyPluginAsync<AppOptions> = async (
-  fastify,
-  opts
-): Promise<void> => {
-  // Place here your custom code!
+// Global error handler
+app.setErrorHandler(async (error, request, reply) => {
+  app.log.error(error);
+  
+  if (error.validation) {
+    return reply.status(400).send({
+      error: 'Validation failed',
+      details: error.validation,
+    });
+  }
 
-  // Do not touch the following lines
+  return reply.status(500).send({
+    error: 'Internal Server Error',
+  });
+});
 
-  // This loads all plugins defined in plugins
-  // those should be support plugins that are reused
-  // through your application
-  // eslint-disable-next-line no-void
-  void fastify.register(AutoLoad, {
-    dir: join(__dirname, 'plugins'),
-    options: opts
-  })
+// Health check endpoint
+app.get('/api/health', async (request, reply) => {
+  return { status: 'ok', timestamp: new Date().toISOString() };
+});
 
-  // This loads all plugins defined in routes
-  // define your routes in one of these
-  // eslint-disable-next-line no-void
-  void fastify.register(AutoLoad, {
-    dir: join(__dirname, 'routes'),
-    options: opts
-  })
-}
-
-export default app
-export { app, options }
+export default app;
